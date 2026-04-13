@@ -170,7 +170,7 @@ function generateSearchSources(text) {
   const encodedQuery = encodeURIComponent(text.substring(0, 100));
   
   return [
-    { name: `Google News: Search results for this claim`, url: `https://news.google.com/search?q=${encodedQuery}` },
+    { name: `Google News: Search results for this claim (Latest 3h)`, url: `https://news.google.com/search?q=${encodedQuery}+when:3h` },
     { name: `Google Fact Check Explorer: Verify this claim`, url: `https://toolbox.google.com/factcheck/explorer/search/${encodedQuery}` },
     { name: `Reuters Fact Check: Related articles`, url: `https://www.reuters.com/site-search/?query=${keywords}` }
   ];
@@ -369,14 +369,18 @@ async function classifyContent(content) {
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
   const prompt = `
-    You are a professional fact-checker. Analyze this content for truthfulness.
+    You are a professional real-time fact-checker. Analyze this content for truthfulness. It is CRITICAL that you check the most recent updates and breaking news, specifically prioritizing information published within the last 2 to 3 hours. Do not rely on outdated news from days ago if there are recent developments.
+    
     Content: "${content}"
+    
+    To ensure highly accurate and strong analysis, first detail your step-by-step reasoning process in the "analysis" field before determining the label and exact confidence percentage score. 
     
     Respond with ONLY valid JSON (no markdown, no code blocks):
     {
+      "analysis": "Internal scratchpad: 1. Identify core claims. 2. Verify against recent sources. 3. Look for sensationalism. 4. Calculate an exact confidence penalty/bonus.",
       "label": "True" or "Misleading" or "Fake",
-      "confidence": number between 0 and 1 (vary this based on how certain you are),
-      "explanation": "Provide the ACTUAL CORRECT FACTS that counter or support this claim. Cite real organizations, studies, or data. Do NOT give generic AI analysis — give real information.",
+      "confidence": number between 0.00 and 1.00 (Calculate this meticulously based on the presence of verified sources, factual discrepancies, and sensationalist language. Provide precise values like 0.87 or 0.94 rather than round numbers.),
+      "explanation": "Provide the ACTUAL CORRECT FACTS that counter or support this claim. Cite real organizations, studies, or the MOST RECENT data. Do NOT give generic AI analysis — give real, up-to-the-minute information.",
       "sources": [
         { "name": "Source Name", "url": "https://..." },
         { "name": "Source Name", "url": "https://..." }
