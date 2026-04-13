@@ -57,6 +57,18 @@ const Trending = () => {
     return 'bg-gray-100 text-gray-600 border-gray-200';
   };
 
+  const getVerdictStyle = (status) => {
+    const s = (status || '').toLowerCase();
+    if (s === 'true') return 'bg-emerald-100 text-emerald-700 border border-emerald-200';
+    if (s === 'mostly true') return 'bg-teal-100 text-teal-700 border border-teal-200';
+    if (s === 'partially correct') return 'bg-blue-100 text-blue-700 border border-blue-200';
+    if (s === 'misleading') return 'bg-orange-100 text-orange-700 border border-orange-200';
+    if (s === 'false' || s === 'fake') return 'bg-red-100 text-red-700 border border-red-200';
+    if (s === 'unverified') return 'bg-amber-100 text-amber-700 border border-amber-200';
+    if (s === 'developing') return 'bg-purple-100 text-purple-700 border border-purple-200';
+    return 'bg-gray-100 text-gray-600 border border-gray-200';
+  };
+
   const formatShares = (num) => {
     if (num >= 10000) return (num / 1000).toFixed(1) + 'K';
     if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
@@ -118,9 +130,7 @@ const Trending = () => {
                   <span className="p-2 bg-gray-50 rounded-xl border border-gray-100 group-hover:bg-primary/5 transition-colors">
                     {getCategoryIcon(item.category)}
                   </span>
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                    item.status === 'Fake' ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-amber-100 text-amber-700 border border-amber-200'
-                  }`}>
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${getVerdictStyle(item.status)}`}>
                     {item.status}
                   </span>
                 </div>
@@ -212,12 +222,8 @@ const Trending = () => {
               {/* Body */}
               <div className="p-6 space-y-6">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <span className={`px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wider ${
-                    selectedItem.status === 'Fake' 
-                      ? 'bg-red-100 text-red-700 border-2 border-red-200' 
-                      : 'bg-amber-100 text-amber-700 border-2 border-amber-200'
-                  }`}>
-                    ⚠️ Verdict: {selectedItem.status}
+                  <span className={`px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wider ${getVerdictStyle(selectedItem.status)}`}>
+                    📊 Verdict: {selectedItem.status}
                   </span>
                   {selectedItem.shares && (
                     <span className="text-xs font-bold text-gray-400 flex items-center gap-1">

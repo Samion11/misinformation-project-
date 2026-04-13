@@ -233,6 +233,7 @@ async function mockClassify(content) {
           label: fact.label,
           confidence: fact.confidence,
           explanation: fact.correction,
+          humanSummary: fact.correction,
           sources: fact.sources,
         };
       }
@@ -273,10 +274,12 @@ async function mockClassify(content) {
   if (fakeWeight > trueWeight && fakeWeight >= 0.15) {
     // Confidence based on signal strength, not length
     const conf = Math.min(0.96, 0.60 + fakeWeight + signalDensityBonus + (matchedFakeSignals * 0.05));
+    const verdictLabel = fakeWeight >= 0.3 ? "False" : "Misleading";
     return {
-      label: fakeWeight >= 0.3 ? "Fake" : "Misleading",
+      label: verdictLabel,
       confidence: parseFloat(conf.toFixed(2)),
       explanation: `This content contains ${matchedFakeSignals} misinformation signal(s) including sensationalist language, capitalization patterns, or unverifiable claims. No credible sources could be found to support these assertions. Be cautious of content that uses emotional manipulation, urgency tactics, or extraordinary claims without providing verifiable evidence.`,
+      humanSummary: `Based on our analysis, this claim appears to be ${verdictLabel.toLowerCase()}. We found ${matchedFakeSignals} red flag(s) in the text — things like exaggerated language, unverified claims, or emotional manipulation. We recommend checking the sources below for the real picture before sharing this further.`,
       sources: dynamicSources
     };
   }
@@ -287,6 +290,7 @@ async function mockClassify(content) {
       label: "True",
       confidence: parseFloat(conf.toFixed(2)),
       explanation: `This content references structured data, research methodology, or institutional authority — indicators commonly associated with credible information. The language tone is factual and measured. However, always verify specific claims against the original published source.`,
+      humanSummary: `This claim appears to be backed by credible indicators. The language used is factual and references authoritative sources. While it looks reliable, we always recommend double-checking with the original source material listed below.`,
       sources: dynamicSources
     };
   }
@@ -294,9 +298,10 @@ async function mockClassify(content) {
   // Unknown / neutral
   if (text.split(/\s+/).length < 5) {
     return {
-      label: "Misleading",
+      label: "Unverified",
       confidence: 0.45,
       explanation: "The provided text is very short and lacks clear factual or sensational signals. Please provide the complete message, article, or claim for a more accurate fact-check.",
+      humanSummary: "We couldn't verify this because the text is too short. Try pasting the full headline, message, or article so we can give you a proper fact-check.",
       sources: []
     };
   }
@@ -308,9 +313,10 @@ async function mockClassify(content) {
   
   if (wikiResult) {
     return {
-      label: "Misleading",
+      label: "Developing",
       confidence: neutralConf,
       explanation: `According to verified internet sources (${wikiResult.title}): ${wikiResult.extract} Please cross-reference this actual context with the claims in the provided text to determine its absolute validity.`,
+      humanSummary: `This is still a developing story and we couldn't fully confirm or deny it yet. Here's what we found: according to Wikipedia's entry on "${wikiResult.title}", ${wikiResult.extract} We recommend checking the latest news sources below for the most current updates.`,
       sources: [
         { name: `Wikipedia: ${wikiResult.title}`, url: wikiResult.url },
         ...dynamicSources
@@ -320,9 +326,10 @@ async function mockClassify(content) {
 
   // Ultimate fallback if internet search fails
   return {
-    label: "Misleading",
+    label: "Unverified",
     confidence: neutralConf,
     explanation: `Internet Search Result: No definitive factual consensus could be instantly retrieved for these specific claims. The content's validity cannot be firmly established from the text alone. Cross-reference with the sources below for the latest reporting on this topic.`,
+    humanSummary: `We couldn't find enough reliable information to confirm or deny this claim right now. This could be a developing story or a very new claim. Check the sources below for the latest updates, and be cautious about sharing it until more details are available.`,
     sources: dynamicSources
   };
 }
@@ -369,36 +376,112 @@ async function classifyContent(content) {
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
   const prompt = `
-    You are a professional real-time fact-checker. Analyze this content for truthfulness. It is CRITICAL that you check the most recent updates and breaking news, specifically prioritizing information published within the last 2 to 3 hours. Do not rely on outdated news from days ago if there are recent developments.
-    
-    Content: "${content}"
-    
-    To ensure highly accurate and strong analysis, first detail your step-by-step reasoning process in the "analysis" field before determining the label and exact confidence percentage score. 
-    
-    Respond with ONLY valid JSON (no markdown, no code blocks):
-    {
-      "analysis": "Internal scratchpad: 1. Identify core claims. 2. Verify against recent sources. 3. Look for sensationalism. 4. Calculate an exact confidence penalty/bonus.",
-      "label": "True" or "Misleading" or "Fake",
-      "confidence": number between 0.00 and 1.00 (Calculate this meticulously based on the presence of verified sources, factual discrepancies, and sensationalist language. Provide precise values like 0.87 or 0.94 rather than round numbers.),
-      "explanation": "Provide the ACTUAL CORRECT FACTS that counter or support this claim. Cite real organizations, studies, or the MOST RECENT data. Do NOT give generic AI analysis — give real, up-to-the-minute information.",
-      "sources": [
-        { "name": "Source Name", "url": "https://..." },
-        { "name": "Source Name", "url": "https://..." }
-      ]
-    }
+You are a Real-Time AI Fake News Detection and News Verification Engine.
+
+Your job is to analyze a user's news claim or query using the most recent available information (preferably within the last few hours) and provide a reliable, human-friendly verification.
+
+Follow ALL instructions strictly:
+
+-----------------------------------
+1. REAL-TIME NEWS RETRIEVAL
+-----------------------------------
+- Assume access to live internet/news data.
+- Always prioritize the latest news (published within the last 24 hours, ideally within a few hours).
+- If the topic is breaking or evolving, treat it as "Developing".
+
+-----------------------------------
+2. MULTI-SOURCE ANALYSIS
+-----------------------------------
+- Find and analyze at least 2 to 3 reliable news sources.
+- Prefer trusted sources (major media, verified journalism platforms).
+- Do NOT rely on a single source.
+- Compare facts across sources:
+  - What is consistent?
+  - What is conflicting?
+  - What is missing?
+
+-----------------------------------
+3. FACT CHECK & VERDICT
+-----------------------------------
+Classify the claim into ONE of these EXACT labels:
+  "True" — Fully verified as accurate by multiple credible sources
+  "Mostly True" — Largely accurate with minor omissions or exaggerations
+  "Misleading" — Contains some truth but is presented in a deceptive way
+  "False" — Demonstrably wrong, fabricated, or contradicted by evidence
+  "Unverified" — Not enough evidence to confirm or deny
+  "Developing" — Breaking/evolving story, facts still emerging
+
+-----------------------------------
+4. CONFIDENCE SCORE
+-----------------------------------
+- Provide a precise confidence score between 0.00 and 1.00
+- Use precise values like 0.87, 0.93 — NOT round numbers like 0.50 or 1.00
+- Calculate based on: number of corroborating sources, recency of data, presence of contradictions, sensationalist red flags
+
+-----------------------------------
+5. REASONING (IMPORTANT)
+-----------------------------------
+- Clearly explain WHY you gave that verdict
+- Mention patterns across sources (agreement, contradiction, lack of proof)
+- Keep explanation factual, not opinion-based
+- Cite specific organizations, studies, or data points
+
+-----------------------------------
+6. HUMANIZED NEWS SUMMARY (VERY IMPORTANT)
+-----------------------------------
+Generate ONE well-written paragraph that:
+- Is based ONLY on actual recent news reports
+- Combines insights from 2-3 sources
+- Covers all key facts related to the user's query
+- Is written in simple, natural human language
+- Avoids robotic or Wikipedia-style tone
+- Feels like a real news explanation for a normal person
+- Includes important context, updates, and current status
+
+DO NOT: Give generic background info, copy from Wikipedia, or make up facts.
+
+-----------------------------------
+Content to analyze: "${content}"
+-----------------------------------
+
+Respond with ONLY valid JSON (no markdown, no code blocks):
+{
+  "label": "True" or "Mostly True" or "Misleading" or "False" or "Unverified" or "Developing",
+  "confidence": number between 0.00 and 1.00,
+  "explanation": "Detailed multi-source reasoning explaining WHY this verdict was given. Cite specific sources, agreements, and contradictions found.",
+  "humanSummary": "One clear, well-written paragraph in simple language summarizing what is actually happening based on real news reports. Make it feel like a friend explaining the news to you.",
+  "sources": [
+    { "name": "Source Name", "url": "https://..." },
+    { "name": "Source Name", "url": "https://..." },
+    { "name": "Source Name", "url": "https://..." }
+  ]
+}
+
+STRICT RULES:
+- NEVER hallucinate sources or facts. Only cite real, existing URLs.
+- NEVER generate random summaries. Base everything on actual current news.
+- If information is insufficient, use "Unverified" and say so honestly.
+- If this is a breaking story, use "Developing" and explain what is known so far.
+- The humanSummary MUST reflect actual current news context, not generic filler.
   `;
+
+  const VALID_LABELS = ['True', 'Mostly True', 'Misleading', 'False', 'Unverified', 'Developing'];
 
   try {
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
     const jsonStr = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
     const parsed = JSON.parse(jsonStr);
-    const normalizedLabel = parsed.label.charAt(0).toUpperCase() + parsed.label.slice(1).toLowerCase();
+    
+    // Normalize label — match against valid labels
+    const rawLabel = (parsed.label || '').trim();
+    const matchedLabel = VALID_LABELS.find(v => v.toLowerCase() === rawLabel.toLowerCase()) || 'Unverified';
+    
     return {
-      label: normalizedLabel === 'True' || normalizedLabel === 'Fake' || normalizedLabel === 'Misleading' 
-        ? normalizedLabel : 'Misleading',
+      label: matchedLabel,
       confidence: Math.max(0, Math.min(1, parsed.confidence)),
       explanation: parsed.explanation,
+      humanSummary: parsed.humanSummary || '',
       sources: Array.isArray(parsed.sources) ? parsed.sources : []
     };
   } catch (error) {

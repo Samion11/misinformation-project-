@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, ShieldCheck, ShieldAlert, ShieldQuestion, Loader2, Sparkles, RotateCcw, ExternalLink, BookOpen, CheckCircle2, SpellCheck, ArrowRight } from 'lucide-react';
+import { Search, ShieldCheck, ShieldAlert, ShieldQuestion, Loader2, Sparkles, RotateCcw, ExternalLink, BookOpen, CheckCircle2, SpellCheck, ArrowRight, ShieldEllipsis, ShieldMinus, Newspaper } from 'lucide-react';
 import { checkMisinformation, autocorrectText } from '../utils/api';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -88,21 +88,62 @@ const Checker = () => {
       title: '✅ Verified as TRUE',
       barColor: 'bg-emerald-500',
     };
-    if (l === 'fake') return {
+    if (l === 'mostly true') return {
+      color: 'bg-teal-50 border-teal-200',
+      textColor: 'text-teal-700',
+      icon: <ShieldCheck className="w-10 h-10 text-teal-500" />,
+      badge: 'bg-teal-500 text-white',
+      title: '🟢 MOSTLY TRUE',
+      barColor: 'bg-teal-500',
+    };
+    if (l === 'partially correct') return {
+      color: 'bg-blue-50 border-blue-200',
+      textColor: 'text-blue-700',
+      icon: <ShieldQuestion className="w-10 h-10 text-blue-500" />,
+      badge: 'bg-blue-500 text-white',
+      title: 'ℹ️ PARTIALLY CORRECT',
+      barColor: 'bg-blue-500',
+    };
+    if (l === 'misleading') return {
+      color: 'bg-orange-50 border-orange-200',
+      textColor: 'text-orange-700',
+      icon: <ShieldAlert className="w-10 h-10 text-orange-500" />,
+      badge: 'bg-orange-500 text-white',
+      title: '⚠️ MISLEADING',
+      barColor: 'bg-orange-500',
+    };
+    if (l === 'false' || l === 'fake') return {
       color: 'bg-red-50 border-red-200',
       textColor: 'text-red-700',
       icon: <ShieldAlert className="w-10 h-10 text-red-500" />,
       badge: 'bg-red-500 text-white',
-      title: '🚨 Detected as FAKE',
+      title: '🚨 Detected as FALSE',
       barColor: 'bg-red-500',
     };
-    return {
+    if (l === 'unverified') return {
       color: 'bg-amber-50 border-amber-200',
       textColor: 'text-amber-700',
       icon: <ShieldQuestion className="w-10 h-10 text-amber-500" />,
       badge: 'bg-amber-500 text-white',
-      title: '⚠️ Potentially MISLEADING',
+      title: '❓ UNVERIFIED',
       barColor: 'bg-amber-500',
+    };
+    if (l === 'developing') return {
+      color: 'bg-purple-50 border-purple-200',
+      textColor: 'text-purple-700',
+      icon: <ShieldQuestion className="w-10 h-10 text-purple-500" />,
+      badge: 'bg-purple-500 text-white',
+      title: '🔄 DEVELOPING STORY',
+      barColor: 'bg-purple-500',
+    };
+    // Fallback
+    return {
+      color: 'bg-gray-50 border-gray-200',
+      textColor: 'text-gray-700',
+      icon: <ShieldQuestion className="w-10 h-10 text-gray-500" />,
+      badge: 'bg-gray-500 text-white',
+      title: '🔍 ANALYZING...',
+      barColor: 'bg-gray-500',
     };
   };
 
@@ -277,7 +318,7 @@ const Checker = () => {
                     </div>
                   </div>
 
-                  {/* What's Actually True */}
+                  {/* Cross-Source Analysis */}
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -286,12 +327,30 @@ const Checker = () => {
                   >
                     <h4 className="text-base font-black text-gray-800 mb-3 flex items-center gap-2">
                       <BookOpen className="w-5 h-5 text-primary" />
-                      {result.label === 'True' ? "Supporting Evidence" : "What's Actually True"}
+                      {result.label === 'True' ? "Supporting Evidence" : result.label === 'False' ? "What's Actually True" : "Cross-Source Analysis"}
                     </h4>
                     <p className="text-gray-700 font-medium leading-relaxed">
                       {result.explanation}
                     </p>
                   </motion.div>
+
+                  {/* Human-Friendly Summary */}
+                  {result.humanSummary && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.28 }}
+                      className="bg-gradient-to-br from-violet-50 to-indigo-50 p-6 rounded-3xl border border-violet-100"
+                    >
+                      <h4 className="text-sm font-black uppercase tracking-widest text-violet-800 mb-3 flex items-center gap-2">
+                        <Newspaper className="w-4 h-4" />
+                        In Simple Words
+                      </h4>
+                      <p className="text-gray-800 font-medium leading-relaxed text-[15px]">
+                        {result.humanSummary}
+                      </p>
+                    </motion.div>
+                  )}
 
                   {/* Verified Sources */}
                   {result.sources && result.sources.length > 0 && (
